@@ -211,8 +211,7 @@ public class Maze {
 		
 		protected String locString()
 		{
-			return "["+new Integer(getLocX()).toString()+","+new Integer(getLocY()).toString()+","+
-					new Integer(getLocZ()).toString()+"]";
+			return "["+getLocX()+","+getLocY()+","+getLocZ()+"]";
 		}
 		
 		public String toString()
@@ -684,6 +683,20 @@ public class Maze {
 		
 	}
 	
+	/**
+	* getContent() get the content of a cell at the given coordinates.
+	* Used by the UI to render the maze grid without needing a droid reference.
+	*
+	* @param x int - x coordinate
+	* @param y int - y coordinate
+	* @param z int - z coordinate (level)
+	* @return Content - contents of the cell at (x, y, z)
+	*/
+	public Content getContent(int x, int y, int z)
+	{
+		return maze[x][y][z].getCellContent();
+	}
+
 	/**
 	* toStringLevel() get string that represents a level of the maze
 	* 	

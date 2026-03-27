@@ -1,146 +1,159 @@
 package mazePD;
 
-import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.function.IntSupplier;
 
 import mazePD.Maze.Content;
 import mazePD.Maze.Direction;
 import mazeStack.LinkedStack;
 
 public class Droid implements DroidInterface {
-	private String name;
-	private Coordinates currentLocation;
-	private LinkedStack <Coordinates> stack = new LinkedStack<>();
-	private ArrayList <Coordinates> visited = new ArrayList<>();
-	
-	public Droid(String name){
-		this.name=name;
-	}
 
-	public String getName() {
-		// TODO Auto-generated method stub
-		return this.name;
-	}
-	
-	public void exploreMaze(Maze maze) {
-		
-		stack.push(maze.enterMaze(this));
-		visited.add(stack.peek());
-		this.setCurrentLocation(stack.peek());
+    /** Called after each committed move (not during probe/undo). */
+    @FunctionalInterface
+    public interface StepListener {
+        void onStep(Coordinates pos, int stepCount, boolean backtrack);
+    }
 
-		while(!stack.isEmpty() && ! maze.scanCurLoc(this).equals(Content.END))
-		{
-			Content[] arraymaze = maze.scanAdjLoc(this);
-			Coordinates newmove = getNextMove(arraymaze, maze);
-			if( newmove != null) {
-				System.out.println("maze location: " + stack.peek());
-					for(int i=0; i<arraymaze.length; i++)
-						System.out.print(arraymaze[i]+" ");
-					System.out.println("\n");
-					stack.push(newmove);
-					
-					visited.add(newmove);
-					
-					if(maze.scanCurLoc(this).equals(Content.PORTAL_DN))
-					{
-						stack.push(maze.usePortal(this, Direction.DN));
-						this.moveToTopStack(maze);
-					}
-			}
-			else {
-				stack.pop();
-				this.moveToTopStack(maze);
-				
-			}
-		}
-		
-		if(stack.isEmpty()) System.out.println("no path found");
-	}
-	
-	public Coordinates getNextMove(Content[] mazeContent, Maze maze) {
-		
-		Coordinates newone = new Coordinates(0,0,0);
+    /** Called once when exploration finishes. */
+    @FunctionalInterface
+    public interface CompleteListener {
+        void onComplete(boolean found, int totalSteps);
+    }
 
-		for(int i=0; i<mazeContent.length; i++)
-		{
-			
-			if((mazeContent[i].equals(Content.EMPTY)) || (mazeContent[i].equals(Content.PORTAL_DN)) || (mazeContent[i].equals(Content.PORTAL_UP)) || (mazeContent[i].equals(Content.END)))
-				{
-				 newone = maze.move(this, moveDir(i));
-				if(!this.isInVisited(newone)) {
-					return newone;
-				}
-				
-				// this condition sets the droid's position back to the initial position
-				// before they tried to see which one was next on line 64;
-				// it basically undo the line 64
-				else {
-					if(i==0) maze.move(this, moveDir(2));
-					else if (i==1) maze.move(this, moveDir(3));
-					else if (i==2) maze.move(this, moveDir(0));
-					else if (i==3) maze.move(this, moveDir(1));
-				}
-		}
-		}
-		return null;
-	}
-	
-	/*
-	 * This function brings the maze to the position at the top of the stack
-	 * */
-	
-	public void moveToTopStack(Maze maze) {
-		int x = maze.getCurrentCoordinates(this).x;
-		int y = maze.getCurrentCoordinates(this).y;
-		if(stack.peek().x == x)
-			if(stack.peek().y > y)
-				maze.move(this, Direction.D180);
-			else
-				maze.move(this, Direction.D00);
-		else if (stack.peek().y == y)
-			if(stack.peek().x > x)
-				maze.move(this, Direction.D90);
-			else
-				maze.move(this, Direction.D270);
-	}
-	
-	
-	public Coordinates getCurrentLocation() {
-		return currentLocation;
-	}
+    // Direction order matching scanAdjLoc() indices: 0=D00, 1=D90, 2=D180, 3=D270
+    private static final Direction[] SCAN_DIRS =
+        { Direction.D00, Direction.D90, Direction.D180, Direction.D270 };
 
-	public void setCurrentLocation(Coordinates currentLocation) {
-		this.currentLocation = currentLocation;
-	}
-	
-	/*
-	 * this fuction receives a number and determine which position is appropriate
-	 * the index is from the table containing the contents of adjacent cells
-	 * */
-	public Direction moveDir(int index) {
-		if(index==0)return Direction.D00;
-		else if (index==1)return Direction.D90;
-		else if (index==2)return Direction.D180;
-		else if (index==3)return Direction.D270;
-		return null;
-	}
-	
-	/*
-	 * This function checks to see if a cell was already visited by the droid
-	 * */
-	public Boolean isInVisited(Coordinates given) {
-		
-		for(Coordinates c: visited)
-			if(c.equals(given)) return true;
-		
-		return false;		
-	}
-	
-	
-	public String toString() {
-		return " Path Taken: "+stack.toArrayFromLast();
-	}
-	
-	
-	
+    private String name;
+    private Coordinates currentLocation;
+    private final LinkedStack<Coordinates> stack   = new LinkedStack<>();
+    private final HashSet<Coordinates>     visited = new HashSet<>();
 
+    private StepListener     stepListener;
+    private CompleteListener completeListener;
+    private IntSupplier      delaySupplier;
+
+    public Droid(String name) { this.name = name; }
+
+    @Override
+    public String getName() { return this.name; }
+
+    public void setStepListener(StepListener l)        { this.stepListener    = l; }
+    public void setCompleteListener(CompleteListener l) { this.completeListener = l; }
+    /** Supply a delay in milliseconds between each committed move. */
+    public void setStepDelay(IntSupplier supplier)     { this.delaySupplier   = supplier; }
+
+    public void exploreMaze(Maze maze) {
+        int stepCount = 0;
+
+        Coordinates start = maze.enterMaze(this);
+        stack.push(start);
+        visited.add(start);
+        setCurrentLocation(start);
+        fireStep(start, stepCount, false);
+        sleep();
+
+        while (!stack.isEmpty() && !maze.scanCurLoc(this).equals(Content.END)) {
+            if (Thread.currentThread().isInterrupted()) return;
+
+            Content[]   adj  = maze.scanAdjLoc(this);
+            Coordinates next = getNextMove(adj, maze);
+            stepCount++;
+
+            if (next != null) {
+                stack.push(next);
+                visited.add(next);
+                fireStep(next, stepCount, false);
+                sleep();
+
+                // Use portal if standing on one
+                if (maze.scanCurLoc(this).equals(Content.PORTAL_DN)) {
+                    Coordinates dest = maze.usePortal(this, Direction.DN);
+                    stack.push(dest);
+                    visited.add(dest);
+                    stepCount++;
+                    fireStep(dest, stepCount, false);
+                    moveToTopStack(maze);
+                    sleep();
+                }
+            } else {
+                stack.pop();
+                if (!stack.isEmpty()) {
+                    moveToTopStack(maze);
+                    fireStep(stack.peek(), stepCount, true);
+                    sleep();
+                }
+            }
+        }
+
+        boolean found = !stack.isEmpty() && maze.scanCurLoc(this).equals(Content.END);
+        if (completeListener != null) completeListener.onComplete(found, stepCount);
+        if (!found) System.out.println("no path found");
+    }
+
+    /**
+     * Scans adjacent cells and moves the droid to the first unvisited
+     * traversable neighbour, returning its coordinates.
+     * Probe moves that land on an already-visited cell are immediately reversed.
+     * Returns null if every direction is blocked or already visited.
+     */
+    public Coordinates getNextMove(Content[] mazeContent, Maze maze) {
+        for (int i = 0; i < mazeContent.length; i++) {
+            Content c = mazeContent[i];
+            if (c == Content.EMPTY || c == Content.PORTAL_DN
+                    || c == Content.PORTAL_UP || c == Content.END) {
+
+                Coordinates candidate = maze.move(this, SCAN_DIRS[i]);
+                if (!isInVisited(candidate)) {
+                    return candidate;       // droid is now at candidate
+                }
+                // Undo the probe: reverse direction index is (i+2)%4
+                maze.move(this, SCAN_DIRS[(i + 2) % 4]);
+            }
+        }
+        return null;
+    }
+
+    /** Moves the droid one step toward the current top of the stack. */
+    public void moveToTopStack(Maze maze) {
+        if (stack.isEmpty()) return;
+        int x = maze.getCurrentCoordinates(this).x;
+        int y = maze.getCurrentCoordinates(this).y;
+        Coordinates top = stack.peek();
+        if (top.x == x) {
+            maze.move(this, top.y > y ? Direction.D180 : Direction.D00);
+        } else if (top.y == y) {
+            maze.move(this, top.x > x ? Direction.D90 : Direction.D270);
+        }
+    }
+
+    /** O(1) visited check — relies on Coordinates.hashCode() and equals(). */
+    public boolean isInVisited(Coordinates coord) {
+        return visited.contains(coord);
+    }
+
+    public Coordinates getCurrentLocation() { return currentLocation; }
+    public void setCurrentLocation(Coordinates c) { this.currentLocation = c; }
+
+    @Override
+    public String toString() {
+        return "Path Taken: " + stack.toArrayFromLast();
+    }
+
+    // ── Private helpers ───────────────────────────────────────
+
+    private void fireStep(Coordinates pos, int step, boolean backtrack) {
+        if (stepListener != null) stepListener.onStep(pos, step, backtrack);
+    }
+
+    private void sleep() {
+        int delay = (delaySupplier != null) ? delaySupplier.getAsInt() : 0;
+        if (delay <= 0) return;
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
 }
