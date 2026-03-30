@@ -96,6 +96,41 @@ Requires **Java 11** or later.
 
 ---
 
+## Web Version (Vercel)
+
+A fully client-side web app in `web/` mirrors the Java version — same maze generation algorithm and DFS solver, rendered on an HTML5 Canvas with the same dark theme.
+
+```
+web/
+├── index.html   — page structure
+├── style.css    — dark theme
+├── maze.js      — maze generation (port of Maze.java)
+├── droid.js     — DFS solver   (port of Droid.java)
+└── app.js       — canvas renderer + UI
+```
+
+### Deploy to Vercel
+
+1. Push this repository to GitHub.
+2. Go to [vercel.com](https://vercel.com) → **Add New Project** → import the repo.
+3. In **Configure Project**, set **Root Directory** to `web`.
+4. Leave Build Command and Output Directory blank (it's a static site).
+5. Click **Deploy**.
+
+Every push to `main` will trigger an automatic redeploy.
+
+### Run locally
+
+```bash
+cd web
+npx serve .          # or: python3 -m http.server 8080
+# then open http://localhost:3000
+```
+
+> The web version is a 2-D single-level maze (no portals). The Java desktop version supports 3-D multi-level mazes.
+
+---
+
 ## Author
 
-David North (original maze engine) — extended with a modern Swing UI, HashSet-based visited tracking, and an event-driven animation system.
+David North (original maze engine) — extended with a modern Swing UI, HashSet-based visited tracking, an event-driven animation system, and a Vercel-deployable web version.

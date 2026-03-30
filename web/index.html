@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>R2D2 Maze Explorer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Header ─────────────────────────────────────────── -->
+    <header>
+      <span class="title">R2D2&nbsp;&nbsp;MAZE&nbsp;&nbsp;EXPLORER</span>
+      <div class="size-control">
+        <label for="size-select">Size</label>
+        <select id="size-select">
+          <option value="6">6 × 6</option>
+          <option value="8" selected>8 × 8</option>
+          <option value="10">10 × 10</option>
+          <option value="12">12 × 12</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- ── Maze canvas ────────────────────────────────────── -->
+    <main>
+      <div class="maze-wrapper">
+        <canvas id="maze-canvas"></canvas>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-item"><span class="dot" style="background:#1c2128"></span>Wall</div>
+        <div class="legend-item"><span class="dot" style="background:#0d1117;border:1px solid #30363d"></span>Open</div>
+        <div class="legend-item"><span class="dot" style="background:#14532d"></span>Path</div>
+        <div class="legend-item"><span class="dot" style="background:#0a2a1a"></span>Visited</div>
+        <div class="legend-item"><span class="dot" style="background:#00d4ff"></span>R2D2</div>
+        <div class="legend-item"><span class="dot" style="background:#f59e0b"></span>Exit</div>
+      </div>
+    </main>
+
+    <!-- ── Footer ─────────────────────────────────────────── -->
+    <footer>
+      <div class="stats">
+        <span id="steps-label">Steps: 0</span>
+        <span class="pipe">|</span>
+        <span id="status-label" class="status-success">Ready</span>
+        <label class="speed-control">
+          Speed
+          <input type="range" id="speed-slider" min="1" max="20" value="6" />
+        </label>
+      </div>
+      <div class="controls">
+        <button id="new-btn">⟳&nbsp; New Maze</button>
+        <button id="start-btn" class="btn-green">▶&nbsp; Start</button>
+        <button id="reset-btn">↺&nbsp; Reset</button>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="maze.js"></script>
+  <script src="droid.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
