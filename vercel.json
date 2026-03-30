@@ -1,7 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "outputDirectory": "web",
-  "buildCommand": "",
-  "installCommand": "",
-  "devCommand": ""
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/web/index.html"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/web/:path*"
+    }
+  ]
 }
